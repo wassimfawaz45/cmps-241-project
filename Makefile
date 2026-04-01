@@ -7,7 +7,7 @@ TARGET = dotsandboxes
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-  gcc $(CFLAGS) -o $(TARGET) $(OBJ)
+	gcc $(CFLAGS) -o $(TARGET) $(OBJ)
 
 run: $(TARGET)
 	./$(TARGET)
