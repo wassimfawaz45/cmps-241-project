@@ -1,110 +1,164 @@
 #include <stdio.h>
 #include <stdlib.h>
+
 #include "board.h"
 
-static int in_range_dot(int r, int c) {
-    return r >= 0 && r < DOT_ROWS && c >= 0 && c < DOT_COLS;
+static int in_range_dot(int row, int col) {
+    return row >= 0 && row < DOT_ROWS && col >= 0 && col < DOT_COLS;
 }
 
-static int claim_box(Board *b, int r, int c, int player) {
-    if (r < 0 || r >= BOX_ROWS || c < 0 || c >= BOX_COLS) return 0;
-    if (b->owner[r][c] != '\0') return 0;
+static int claim_box(Board *board, int row, int col, int player) {
+    if (row < 0 || row >= BOX_ROWS || col < 0 || col >= BOX_COLS) {
+        return 0;
+    }
 
-    if (b->h[r][c] && b->h[r + 1][c] && b->v[r][c] && b->v[r][c + 1]) {
-        b->owner[r][c] = player == 0 ? 'A' : 'B';
-        if (player == 0) b->scoreA++;
-        else b->scoreB++;
+    if (board->owner[row][col] != '\0') {
+        return 0;
+    }
+
+    if (board->h[row][col] && board->h[row + 1][col]
+        && board->v[row][col] && board->v[row][col + 1]) {
+        board->owner[row][col] = player == 0 ? 'A' : 'B';
+        if (player == 0) {
+            board->scoreA++;
+        } else {
+            board->scoreB++;
+        }
         return 1;
     }
+
     return 0;
 }
 
-void board_init(Board *b) {
-    int r, c;
-    for (r = 0; r < DOT_ROWS; r++) {
-        for (c = 0; c < BOX_COLS; c++) b->h[r][c] = 0;
+void board_init(Board *board) {
+    int row;
+    int col;
+
+    for (row = 0; row < DOT_ROWS; row++) {
+        for (col = 0; col < BOX_COLS; col++) {
+            board->h[row][col] = 0;
+        }
     }
-    for (r = 0; r < BOX_ROWS; r++) {
-        for (c = 0; c < DOT_COLS; c++) b->v[r][c] = 0;
+
+    for (row = 0; row < BOX_ROWS; row++) {
+        for (col = 0; col < DOT_COLS; col++) {
+            board->v[row][col] = 0;
+        }
     }
-    for (r = 0; r < BOX_ROWS; r++) {
-        for (c = 0; c < BOX_COLS; c++) b->owner[r][c] = '\0';
+
+    for (row = 0; row < BOX_ROWS; row++) {
+        for (col = 0; col < BOX_COLS; col++) {
+            board->owner[row][col] = '\0';
+        }
     }
-    b->scoreA = 0;
-    b->scoreB = 0;
+
+    board->scoreA = 0;
+    board->scoreB = 0;
 }
 
-void board_print(const Board *b) {
-    int r, c;
+void board_print(const Board *board) {
+    int row;
+    int col;
 
-    printf("\n   ");
-    for (c = 0; c < DOT_COLS; c++) printf("%d ", c);
+    printf("\n  ");
+    for (col = 0; col < DOT_COLS; col++) {
+        printf("%d ", col);
+    }
     printf("\n");
 
-    for (r = 0; r < DOT_ROWS; r++) {
-        printf("%d  ", r);
-        for (c = 0; c < DOT_COLS; c++) {
+    for (row = 0; row < DOT_ROWS; row++) {
+        printf("%d ", row);
+        for (col = 0; col < DOT_COLS; col++) {
             printf(".");
-            if (c < BOX_COLS) printf(b->h[r][c] ? "-" : " ");
+            if (col < BOX_COLS) {
+                printf("%c", board->h[row][col] ? '-' : ' ');
+            }
         }
         printf("\n");
 
-        if (r < BOX_ROWS) {
-            printf("   ");
-            for (c = 0; c < DOT_COLS; c++) {
-                printf("%c", b->v[r][c] ? '|' : ' ');
-                if (c < BOX_COLS) {
-                    char ch = b->owner[r][c] ? b->owner[r][c] : ' ';
-                    printf("%c", ch);
+        if (row < BOX_ROWS) {
+            printf("  ");
+            for (col = 0; col < DOT_COLS; col++) {
+                printf("%c", board->v[row][col] ? '|' : ' ');
+                if (col < BOX_COLS) {
+                    printf("%c", board->owner[row][col] ? board->owner[row][col] : ' ');
                 }
             }
             printf("\n");
         }
     }
 
-    printf("\nPlayer A score: %d\n", b->scoreA);
-    printf("Player B score: %d\n\n", b->scoreB);
+    printf("\nPlayer A score: %d\n", board->scoreA);
+    printf("Player B score: %d\n\n", board->scoreB);
 }
 
-int board_apply_move(Board *b, int player, int r1, int c1, int r2, int c2) {
+int board_apply_move(Board *board, int player, int r1, int c1, int r2, int c2) {
     int claimed = 0;
 
-    if (!in_range_dot(r1, c1) || !in_range_dot(r2, c2)) return -1;
-    if (abs(r1 - r2) + abs(c1 - c2) != 1) return -1;
+    if (!in_range_dot(r1, c1) || !in_range_dot(r2, c2)) {
+        return -1;
+    }
+
+    if (abs(r1 - r2) + abs(c1 - c2) != 1) {
+        return -1;
+    }
 
     if (r1 == r2) {
-        int rr = r1;
-        int cc = c1 < c2 ? c1 : c2;
-        if (b->h[rr][cc]) return -1;
-        b->h[rr][cc] = 1;
+        int row = r1;
+        int col = c1 < c2 ? c1 : c2;
 
-        if (rr > 0) claimed += claim_box(b, rr - 1, cc, player);
-        if (rr < BOX_ROWS) claimed += claim_box(b, rr, cc, player);
+        if (board->h[row][col]) {
+            return -1;
+        }
+
+        board->h[row][col] = 1;
+        if (row > 0) {
+            claimed += claim_box(board, row - 1, col, player);
+        }
+        if (row < BOX_ROWS) {
+            claimed += claim_box(board, row, col, player);
+        }
     } else {
-        int rr = r1 < r2 ? r1 : r2;
-        int cc = c1;
-        if (b->v[rr][cc]) return -1;
-        b->v[rr][cc] = 1;
+        int row = r1 < r2 ? r1 : r2;
+        int col = c1;
 
-        if (cc > 0) claimed += claim_box(b, rr, cc - 1, player);
-        if (cc < BOX_COLS) claimed += claim_box(b, rr, cc, player);
+        if (board->v[row][col]) {
+            return -1;
+        }
+
+        board->v[row][col] = 1;
+        if (col > 0) {
+            claimed += claim_box(board, row, col - 1, player);
+        }
+        if (col < BOX_COLS) {
+            claimed += claim_box(board, row, col, player);
+        }
     }
 
     return claimed;
 }
 
-int board_full(const Board *b) {
-    int r, c;
-    for (r = 0; r < BOX_ROWS; r++) {
-        for (c = 0; c < BOX_COLS; c++) {
-            if (b->owner[r][c] == '\0') return 0;
+int board_full(const Board *board) {
+    int row;
+    int col;
+
+    for (row = 0; row < BOX_ROWS; row++) {
+        for (col = 0; col < BOX_COLS; col++) {
+            if (board->owner[row][col] == '\0') {
+                return 0;
+            }
         }
     }
+
     return 1;
 }
 
-char board_winner(const Board *b) {
-    if (b->scoreA > b->scoreB) return 'A';
-    if (b->scoreB > b->scoreA) return 'B';
+char board_winner(const Board *board) {
+    if (board->scoreA > board->scoreB) {
+        return 'A';
+    }
+    if (board->scoreB > board->scoreA) {
+        return 'B';
+    }
     return 'T';
 }
