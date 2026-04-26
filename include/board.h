@@ -14,10 +14,10 @@ typedef struct {
     int scoreB;
 } Board;
 
-void board_init(Board *b);
-void board_print(const Board *b);
-int board_apply_move(Board *b, int player, int r1, int c1, int r2, int c2);
-int board_full(const Board *b);
-char board_winner(const Board *b);
+void board_init(Board *board);
+void board_print(const Board *board);
+int board_apply_move(Board *board, int player, int r1, int c1, int r2, int c2);
+int board_full(const Board *board);
+char board_winner(const Board *board);
 
 #endif
