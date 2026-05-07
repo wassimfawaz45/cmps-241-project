@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -Werror -std=c11 -g -D_POSIX_C_SOURCE=200112L -Iinclude
 LDFLAGS = -pthread
-SRC = src/main.c src/game.c src/board.c src/network.c src/logger.c
+SRC = src/main.c src/game.c src/board.c src/network.c src/logger.c src/bot.c
 OBJ = $(SRC:.c=.o)
 TARGET = dotsandboxes
 
