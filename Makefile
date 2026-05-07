@@ -16,5 +16,7 @@ run-host: $(TARGET)
 run-client: $(TARGET)
 	./$(TARGET) --connect 127.0.0.1 5000
 
+run-bot: $(TARGET)
+	./$(TARGET) --bot
 clean:
 	rm -f $(OBJ) $(TARGET) match_log.txt
