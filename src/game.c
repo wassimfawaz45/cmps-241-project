@@ -5,10 +5,12 @@
 #include "game.h"
 #include "logger.h"
 #include "network.h"
+#include "bot.h"
 
 typedef enum {
     MODE_HOST,
-    MODE_CLIENT
+    MODE_CLIENT,
+    MODE_BOT
 } SessionMode;
 
 typedef struct {
@@ -28,6 +30,7 @@ static void print_usage(const char *program_name) {
     printf("Usage:\n");
     printf("  %s --host <port>\n", program_name);
     printf("  %s --connect <ip-address> <port>\n", program_name);
+    printf("  %s --bot\n", program_name);
 }
 
 static int parse_arguments(int argc, char **argv, GameConfig *config) {
@@ -45,12 +48,20 @@ static int parse_arguments(int argc, char **argv, GameConfig *config) {
         return 0;
     }
 
+    if (argc == 2 && strcmp(argv[1], "--bot") == 0) {
+        config->mode = MODE_BOT;
+        config->address = NULL;
+        config->port = NULL;
+        return 0;
+    }
+
     return -1;
 }
 
 static int read_local_move(int player, int *r1, int *c1, int *r2, int *c2) {
     printf("Player %c turn. Enter r1 c1 r2 c2: ", player == 0 ? 'A' : 'B');
     fflush(stdout);
+
     if (scanf("%d %d %d %d", r1, c1, r2, c2) != 4) {
         printf("Invalid input. Please enter 4 integers.\n");
         clear_input_line();
@@ -77,6 +88,90 @@ static void announce_winner(const Board *board) {
     }
 }
 
+static int run_bot_mode(void) {
+    Board board;
+    MatchLogger logger;
+    int current_player = 0;
+    int logger_started = 0;
+
+    board_init(&board);
+
+    if (logger_start(&logger, "match_log.txt", &board) == 0) {
+        logger_started = 1;
+    } else {
+        printf("Warning: logger thread could not be started.\n");
+    }
+
+    printf("Player A = Human\n");
+    printf("Player B = Hard Bot\n");
+
+    while (!board_full(&board)) {
+        int r1;
+        int c1;
+        int r2;
+        int c2;
+        int claimed;
+
+        board_print(&board);
+
+        if (current_player == 0) {
+            if (read_local_move(0, &r1, &c1, &r2, &c2) != 0) {
+                continue;
+            }
+
+            claimed = board_apply_move(&board, 0, r1, c1, r2, c2);
+            if (claimed < 0) {
+                printf("Invalid move. Try again.\n");
+                continue;
+            }
+
+            if (logger_started) {
+                logger_record_move(&logger, &board, 0);
+            }
+
+            announce_turn_result(0, claimed);
+
+            if (claimed == 0) {
+                current_player = 1;
+            }
+        } else {
+            printf("Hard bot is thinking...\n");
+
+            bot_choose_move(&board, &r1, &c1, &r2, &c2);
+
+            claimed = board_apply_move(&board, 1, r1, c1, r2, c2);
+            if (claimed < 0) {
+                printf("Bot generated an invalid move.\n");
+                break;
+            }
+
+            printf("Hard bot played: %d %d %d %d\n", r1, c1, r2, c2);
+
+            if (logger_started) {
+                logger_record_move(&logger, &board, 1);
+            }
+
+            announce_turn_result(1, claimed);
+
+            if (claimed == 0) {
+                current_player = 0;
+            }
+        }
+    }
+
+    board_print(&board);
+
+    if (board_full(&board)) {
+        announce_winner(&board);
+    }
+
+    if (logger_started) {
+        logger_stop(&logger);
+    }
+
+    return 0;
+}
+
 int game_run(int argc, char **argv) {
     Board board;
     GameConfig config;
@@ -91,24 +186,34 @@ int game_run(int argc, char **argv) {
         return 1;
     }
 
+    if (config.mode == MODE_BOT) {
+        return run_bot_mode();
+    }
+
     connection.socket_fd = -1;
+
     if (config.mode == MODE_HOST) {
         printf("Hosting game on port %s. Waiting for Player B...\n", config.port);
+
         if (network_host(&connection, config.port) != 0) {
             printf("Failed to host the game.\n");
             return 1;
         }
+
         printf("Player B connected.\n");
     } else {
         printf("Connecting to %s:%s...\n", config.address, config.port);
+
         if (network_join(&connection, config.address, config.port) != 0) {
             printf("Failed to connect to the host.\n");
             return 1;
         }
+
         printf("Connected to the host.\n");
     }
 
     board_init(&board);
+
     if (logger_start(&logger, "match_log.txt", &board) == 0) {
         logger_started = 1;
     } else {
@@ -148,11 +253,13 @@ int game_run(int argc, char **argv) {
             }
 
             announce_turn_result(local_player, claimed);
+
             if (claimed == 0) {
                 current_player = 1 - current_player;
             }
         } else {
             printf("Waiting for Player %c to move...\n", current_player == 0 ? 'A' : 'B');
+
             if (network_receive_move(connection.socket_fd, &r1, &c1, &r2, &c2) != 0) {
                 printf("Connection lost while waiting for the other player.\n");
                 break;
@@ -170,7 +277,9 @@ int game_run(int argc, char **argv) {
 
             printf("Player %c played: %d %d %d %d\n",
                 current_player == 0 ? 'A' : 'B', r1, c1, r2, c2);
+
             announce_turn_result(current_player, claimed);
+
             if (claimed == 0) {
                 current_player = 1 - current_player;
             }
@@ -178,6 +287,7 @@ int game_run(int argc, char **argv) {
     }
 
     board_print(&board);
+
     if (board_full(&board)) {
         announce_winner(&board);
     }
@@ -185,6 +295,8 @@ int game_run(int argc, char **argv) {
     if (logger_started) {
         logger_stop(&logger);
     }
+
     network_close(connection.socket_fd);
+
     return 0;
 }
