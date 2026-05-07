@@ -135,9 +135,16 @@ static int run_bot_mode(void) {
                 current_player = 1;
             }
         } else {
+            Move bot_move;
+
             printf("Hard bot is thinking...\n");
 
-            bot_choose_move(&board, &r1, &c1, &r2, &c2);
+            bot_move = choose_bot_move(&board);
+
+            r1 = bot_move.r1;
+            c1 = bot_move.c1;
+            r2 = bot_move.r2;
+            c2 = bot_move.c2;
 
             claimed = board_apply_move(&board, 1, r1, c1, r2, c2);
             if (claimed < 0) {
