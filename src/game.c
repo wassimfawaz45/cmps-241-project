@@ -188,9 +188,37 @@ int game_run(int argc, char **argv) {
     int local_player;
     int logger_started = 0;
 
-    if (parse_arguments(argc, argv, &config) != 0) {
-        print_usage(argv[0]);
-        return 1;
+    if (argc == 1) {
+        int choice;
+
+        printf("Choose game mode:\n");
+        printf("1. Player vs Player (Network Host)\n");
+        printf("2. Player vs Hard Bot\n");
+        printf("Enter choice: ");
+        fflush(stdout);
+
+        if (scanf("%d", &choice) != 1) {
+            printf("Invalid choice.\n");
+            return 1;
+        }
+
+        if (choice == 1) {
+            config.mode = MODE_HOST;
+            config.address = NULL;
+            config.port = "5000";
+        } else if (choice == 2) {
+            config.mode = MODE_BOT;
+            config.address = NULL;
+            config.port = NULL;
+        } else {
+            printf("Invalid choice.\n");
+            return 1;
+        }
+    } else {
+        if (parse_arguments(argc, argv, &config) != 0) {
+            print_usage(argv[0]);
+            return 1;
+        }
     }
 
     if (config.mode == MODE_BOT) {
@@ -198,7 +226,6 @@ int game_run(int argc, char **argv) {
     }
 
     connection.socket_fd = -1;
-
     if (config.mode == MODE_HOST) {
         printf("Hosting game on port %s. Waiting for Player B...\n", config.port);
 
